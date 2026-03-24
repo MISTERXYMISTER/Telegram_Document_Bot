@@ -1,52 +1,45 @@
 package com.bot;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.bots.DefaultAbsSender;
+import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Component
-public class WebhookBot {
+public class WebhookBot extends TelegramLongPollingBot {
 
-    private final String token = System.getenv("BOT_TOKEN");
+    @Value("${bot.username}")
+    private String botUsername;
 
-    private final DefaultAbsSender sender = new DefaultAbsSender(null) {
-        @Override
-        public String getBotToken() {
-            return token;
-        }
-    };
+    @Value("${bot.token}")
+    private String botToken;
 
-    public void handleUpdate(Update update) {
-
-        if (update == null || !update.hasMessage()) return;
-
-        Long chatId = update.getMessage().getChatId();
-        String text = update.getMessage().getText();
-
-        try {
-            if (text != null && text.equals("/start")) {
-                sendMessage(chatId, "⚡ Waking up...\nSend file or type tag");
-                return;
-            }
-
-            if (text != null) {
-                sendMessage(chatId, "You said: " + text);
-                return;
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    @Override
+    public String getBotUsername() {
+        return botUsername;
     }
 
-    private void sendMessage(Long chatId, String text) throws TelegramApiException {
-        SendMessage msg = SendMessage.builder()
-                .chatId(chatId.toString())
-                .text(text)
-                .build();
+    @Override
+    public String getBotToken() {
+        return botToken;
+    }
 
-        sender.execute(msg);
+    @Override
+    public void onUpdateReceived(Update update) {
+
+        if (update.hasMessage() && update.getMessage().hasText()) {
+
+            String text = update.getMessage().getText();
+            Long chatId = update.getMessage().getChatId();
+
+            if (text.equals("/start")) {
+                try {
+                    execute(new SendMessage(chatId.toString(), "🔥 Bot is working perfectly!"));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }

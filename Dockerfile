@@ -1,10 +1,9 @@
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:17-jdk-alpine
 
 WORKDIR /app
 
-COPY . .
+COPY target/*.jar app.jar
 
-RUN chmod +x mvnw
-RUN ./mvnw clean package -DskipTests
+EXPOSE 10000
 
-ENTRYPOINT ["java", "-jar", "target/telegram-doc-bot-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
