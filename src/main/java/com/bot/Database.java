@@ -5,9 +5,9 @@ import java.util.*;
 
 public class Database {
 
-    private static final String DB_URL = "jdbc:sqlite:documents.db";
+    private static String DB_URL = System.getenv("DATABASE_URL");
 
-    public static void init() {
+    static {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             Statement stmt = conn.createStatement();
 
@@ -24,22 +24,55 @@ public class Database {
         }
     }
 
-    public static void saveFile(String userId, String tag, String fileId) throws Exception {
+    public static void save(String userId, String tag, List<String> fileIds) throws Exception {
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+
+            for (String fileId : fileIds) {
+                PreparedStatement ps = conn.prepareStatement(
+                        "INSERT INTO documents (user_id, tag, file_id) VALUES (?, ?, ?)"
+                );
+
+                ps.setString(1, userId);
+                ps.setString(2, tag.toLowerCase());
+                ps.setString(3, fileId);
+
+                ps.executeUpdate();
+            }
+        }
+    }
+
+    public static void replace(String userId, String tag, List<String> fileIds) throws Exception {
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+
+            PreparedStatement del = conn.prepareStatement(
+                    "DELETE FROM documents WHERE user_id=? AND tag=?"
+            );
+            del.setString(1, userId);
+            del.setString(2, tag.toLowerCase());
+            del.executeUpdate();
+
+            save(userId, tag, fileIds);
+        }
+    }
+
+    public static boolean exists(String userId, String tag) throws Exception {
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
 
             PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO documents (user_id, tag, file_id) VALUES (?, ?, ?)"
+                    "SELECT 1 FROM documents WHERE user_id=? AND tag=? LIMIT 1"
             );
 
             ps.setString(1, userId);
             ps.setString(2, tag.toLowerCase());
-            ps.setString(3, fileId);
 
-            ps.executeUpdate();
+            ResultSet rs = ps.executeQuery();
+            return rs.next();
         }
     }
 
-    public static List<String> getFiles(String userId, String tag) throws Exception {
+    public static List<String> search(String userId, String input) throws Exception {
+        List<String> result = new ArrayList<>();
+
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
 
             PreparedStatement ps = conn.prepareStatement(
@@ -47,20 +80,21 @@ public class Database {
             );
 
             ps.setString(1, userId);
-            ps.setString(2, "%" + tag.toLowerCase() + "%");
+            ps.setString(2, "%" + input.toLowerCase() + "%");
 
             ResultSet rs = ps.executeQuery();
 
-            List<String> list = new ArrayList<>();
             while (rs.next()) {
-                list.add(rs.getString("file_id"));
+                result.add(rs.getString("file_id"));
             }
-
-            return list;
         }
+
+        return result;
     }
 
-    public static List<String> getTags(String userId) throws Exception {
+    public static Set<String> getTags(String userId) throws Exception {
+        Set<String> tags = new HashSet<>();
+
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
 
             PreparedStatement ps = conn.prepareStatement(
@@ -70,26 +104,11 @@ public class Database {
             ps.setString(1, userId);
             ResultSet rs = ps.executeQuery();
 
-            List<String> list = new ArrayList<>();
             while (rs.next()) {
-                list.add(rs.getString("tag"));
+                tags.add(rs.getString("tag"));
             }
-
-            return list;
         }
-    }
 
-    public static void deleteTag(String userId, String tag) throws Exception {
-        try (Connection conn = DriverManager.getConnection(DB_URL)) {
-
-            PreparedStatement ps = conn.prepareStatement(
-                    "DELETE FROM documents WHERE user_id=? AND tag=?"
-            );
-
-            ps.setString(1, userId);
-            ps.setString(2, tag.toLowerCase());
-
-            ps.executeUpdate();
-        }
+        return tags;
     }
 }
