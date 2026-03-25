@@ -17,23 +17,25 @@ public class Database {
         }
         
         try {
-            if (dbUrl.startsWith("postgres://")) {
+            if (dbUrl.startsWith("postgresql://")) {
+                dbUrl = dbUrl.substring("postgresql://".length());
+            } else if (dbUrl.startsWith("postgres://")) {
                 dbUrl = dbUrl.substring("postgres://".length());
-                
-                String[] parts = dbUrl.split("/");
-                String hostPart = parts[0];
-                String dbName = parts.length > 1 ? parts[1] : "postgres";
-                
-                String[] hostPort = hostPart.split(":");
-                String host = hostPort[0];
-                String port = hostPort.length > 1 ? hostPort[1] : "5432";
-                
-                String[] userPass = hostPart.split("@")[0].split(":");
-                DB_USER = userPass[0];
-                DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
-                
-                dbUrl = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
             }
+            
+            String[] parts = dbUrl.split("/");
+            String hostPart = parts[0];
+            String dbName = parts.length > 1 ? parts[1] : "postgres";
+            
+            String[] hostPort = hostPart.split(":");
+            String host = hostPort[0];
+            String port = hostPort.length > 1 ? hostPort[1] : "5432";
+            
+            String[] userPass = hostPart.split("@")[0].split(":");
+            DB_USER = userPass[0];
+            DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
+            
+            dbUrl = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
             
             String manualUser = System.getenv("DB_USER");
             String manualPass = System.getenv("DB_PASSWORD");
