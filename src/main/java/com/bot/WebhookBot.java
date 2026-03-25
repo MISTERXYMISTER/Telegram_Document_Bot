@@ -2,14 +2,15 @@ package com.bot;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.bots.TelegramWebhookBot;
 import org.telegram.telegrambots.meta.api.methods.send.*;
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.objects.*;
 
 import java.util.*;
 
 @Component
-public class WebhookBot extends TelegramLongPollingBot {
+public class WebhookBot extends TelegramWebhookBot {
 
     @Value("${bot.username}")
     private String username;
@@ -17,10 +18,12 @@ public class WebhookBot extends TelegramLongPollingBot {
     @Value("${bot.token}")
     private String token;
 
-    // STATE MANAGEMENT
-    private Map<Long, UserState> userStates = new HashMap<>();
-    private Map<Long, List<String>> tempFiles = new HashMap<>();
-    private Map<Long, String> tempTag = new HashMap<>();
+    @Value("${bot.path}")
+    private String path;
+
+    private final Map<Long, UserState> userStates = new HashMap<>();
+    private final Map<Long, List<String>> tempFiles = new HashMap<>();
+    private final Map<Long, String> tempTag = new HashMap<>();
 
     @Override
     public String getBotUsername() {
@@ -33,9 +36,14 @@ public class WebhookBot extends TelegramLongPollingBot {
     }
 
     @Override
-    public void onUpdateReceived(Update update) {
+    public String getBotPath() {
+        return path;
+    }
 
-        if (!update.hasMessage()) return;
+    @Override
+    public BotApiMethod<?> onWebhookUpdateReceived(Update update) {
+
+        if (!update.hasMessage()) return null;
 
         Message msg = update.getMessage();
         Long chatId = msg.getChatId();
@@ -45,7 +53,6 @@ public class WebhookBot extends TelegramLongPollingBot {
 
         try {
 
-            // 📤 FILE UPLOAD
             if (msg.hasDocument() || msg.hasPhoto()) {
 
                 String fileId = msg.hasDocument()
@@ -57,32 +64,25 @@ public class WebhookBot extends TelegramLongPollingBot {
 
                 userStates.put(chatId, UserState.WAITING_FOR_TAG);
 
-                execute(new SendMessage(chatId.toString(),
-                        "📄 File received. Send passkey (aadhaar, pan, etc)"));
-                return;
+                return new SendMessage(chatId.toString(),
+                        "📄 File received. Send passkey (aadhaar, pan, etc)");
             }
 
-            // 📝 TEXT INPUT
             if (msg.hasText()) {
 
                 String text = msg.getText().toLowerCase();
 
-                // START
                 if (text.equals("/start")) {
-                    execute(new SendMessage(chatId.toString(),
-                            "🔥 Welcome to DocVault\nUpload files or type keyword to retrieve"));
-                    return;
+                    return new SendMessage(chatId.toString(),
+                            "🔥 Welcome to DocVault\nUpload files or type keyword to retrieve");
                 }
 
-                // 📂 LIST TAGS
                 if (text.equals("/mydocs")) {
                     Set<String> tags = Database.getTags(userId);
-                    execute(new SendMessage(chatId.toString(),
-                            "📂 " + tags));
-                    return;
+                    return new SendMessage(chatId.toString(),
+                            "📂 " + tags);
                 }
 
-                // 🏷 SAVE TAG
                 if (userStates.get(chatId) == UserState.WAITING_FOR_TAG) {
 
                     String tag = text;
@@ -92,9 +92,8 @@ public class WebhookBot extends TelegramLongPollingBot {
                         tempTag.put(chatId, tag);
                         userStates.put(chatId, UserState.WAITING_FOR_REPLACE_DECISION);
 
-                        execute(new SendMessage(chatId.toString(),
-                                "⚠️ Already exists.\nType:\n1 = Replace\n2 = Add new"));
-                        return;
+                        return new SendMessage(chatId.toString(),
+                                "⚠️ Already exists.\nType:\n1 = Replace\n2 = Add new");
                     }
 
                     Database.save(userId, tag, tempFiles.get(chatId));
@@ -102,47 +101,52 @@ public class WebhookBot extends TelegramLongPollingBot {
                     tempFiles.remove(chatId);
                     userStates.put(chatId, UserState.IDLE);
 
-                    execute(new SendMessage(chatId.toString(), "✅ Saved"));
-                    return;
+                    return new SendMessage(chatId.toString(), "✅ Saved");
                 }
 
-                // 🔁 REPLACE / ADD
                 if (userStates.get(chatId) == UserState.WAITING_FOR_REPLACE_DECISION) {
 
                     String tag = tempTag.get(chatId);
 
                     if (text.equals("1")) {
                         Database.replace(userId, tag, tempFiles.get(chatId));
-                        execute(new SendMessage(chatId.toString(), "♻️ Replaced"));
                     } else {
                         Database.save(userId, tag, tempFiles.get(chatId));
-                        execute(new SendMessage(chatId.toString(), "➕ Added"));
                     }
 
                     tempFiles.remove(chatId);
                     tempTag.remove(chatId);
                     userStates.put(chatId, UserState.IDLE);
-                    return;
+
+                    return new SendMessage(chatId.toString(), text.equals("1") ? "♻️ Replaced" : "➕ Added");
                 }
 
-                // 🔍 RETRIEVE
                 List<String> files = Database.search(userId, text);
 
                 if (files.isEmpty()) {
-                    execute(new SendMessage(chatId.toString(), "❌ Not found"));
-                    return;
+                    return new SendMessage(chatId.toString(), "❌ Not found");
                 }
 
+                SendMessage responseMsg = new SendMessage(chatId.toString(), "📄 Found " + files.size() + " file(s)");
+                
                 for (String f : files) {
-                    SendDocument doc = new SendDocument();
-                    doc.setChatId(chatId.toString());
-                    doc.setDocument(new InputFile(f));
-                    execute(doc);
+                    try {
+                        SendDocument doc = new SendDocument();
+                        doc.setChatId(chatId.toString());
+                        doc.setDocument(new InputFile(f));
+                        execute(doc);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
+
+                return responseMsg;
             }
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        return null;
     }
 }
