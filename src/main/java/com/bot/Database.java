@@ -13,36 +13,40 @@ public class Database {
         String dbUrl = System.getenv("DATABASE_URL");
         
         if (dbUrl == null || dbUrl.isEmpty()) {
-            dbUrl = System.getProperty("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/postgres");
+            dbUrl = "postgres://postgres:postgres@localhost:5432/postgres";
         }
         
         try {
             if (dbUrl.startsWith("postgres://")) {
-                dbUrl = "jdbc:postgresql://" + dbUrl.substring("postgres://".length());
+                dbUrl = dbUrl.substring("postgres://".length());
+                
+                String[] parts = dbUrl.split("/");
+                String hostPart = parts[0];
+                String dbName = parts.length > 1 ? parts[1] : "postgres";
+                
+                String[] hostPort = hostPart.split(":");
+                String host = hostPort[0];
+                String port = hostPort.length > 1 ? hostPort[1] : "5432";
+                
+                String[] userPass = hostPart.split("@")[0].split(":");
+                DB_USER = userPass[0];
+                DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
+                
+                dbUrl = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
             }
             
-            String user = System.getenv("DB_USER");
-            String password = System.getenv("DB_PASSWORD");
+            String manualUser = System.getenv("DB_USER");
+            String manualPass = System.getenv("DB_PASSWORD");
             
-            if (user != null && !user.isEmpty()) {
-                DB_USER = user;
-            } else {
-                String[] parts = dbUrl.split("@");
-                if (parts.length > 0) {
-                    String[] creds = parts[0].split("://");
-                    if (creds.length > 1) {
-                        String[] userPass = creds[1].split(":");
-                        DB_USER = userPass[0];
-                        DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
-                    }
-                }
+            if (manualUser != null && !manualUser.isEmpty()) {
+                DB_USER = manualUser;
             }
-            
-            if (password != null && !password.isEmpty()) {
-                DB_PASSWORD = password;
+            if (manualPass != null && !manualPass.isEmpty()) {
+                DB_PASSWORD = manualPass;
             }
             
             DB_URL = dbUrl;
+            System.out.println("🔗 Connecting to: " + DB_URL + " as " + DB_USER);
             
             try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
                 Statement stmt = conn.createStatement();
