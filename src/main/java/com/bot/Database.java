@@ -2,19 +2,37 @@ package com.bot;
 
 import java.sql.*;
 import java.util.*;
+import java.net.URI;
 
 public class Database {
 
-    private static String DB_URL = System.getenv("DATABASE_URL");
-    private static String DB_USER = System.getenv("DB_USER");
-    private static String DB_PASSWORD = System.getenv("DB_PASSWORD");
+    private static String DB_URL;
+    private static String DB_USER;
+    private static String DB_PASSWORD;
 
     static {
+        DB_URL = System.getenv("DATABASE_URL");
         if (DB_URL == null || DB_URL.isEmpty()) {
             DB_URL = System.getProperty("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/postgres");
         }
-        if (DB_USER == null) DB_USER = "postgres";
-        if (DB_PASSWORD == null) DB_PASSWORD = "postgres";
+        
+        String user = System.getenv("DB_USER");
+        String password = System.getenv("DB_PASSWORD");
+        
+        if (user == null || password == null) {
+            try {
+                URI uri = new URI(DB_URL);
+                String[] userInfo = uri.getUserInfo().split(":");
+                DB_USER = userInfo[0];
+                DB_PASSWORD = userInfo.length > 1 ? userInfo[1] : "";
+            } catch (Exception e) {
+                DB_USER = "postgres";
+                DB_PASSWORD = "postgres";
+            }
+        } else {
+            DB_USER = user;
+            DB_PASSWORD = password;
+        }
 
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
             Statement stmt = conn.createStatement();
@@ -26,9 +44,10 @@ public class Database {
                     file_id TEXT
                 )
             """);
+            System.out.println("✅ DATABASE CONNECTED");
 
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("❌ DATABASE CONNECTION FAILED: " + e.getMessage());
         }
     }
 
