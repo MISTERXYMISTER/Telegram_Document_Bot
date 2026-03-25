@@ -145,6 +145,7 @@ public class WebhookBot extends TelegramWebhookBot {
 
         } catch (Exception e) {
             e.printStackTrace();
+            return new SendMessage(chatId.toString(), "❌ Error: " + e.getMessage());
         }
 
         return null;

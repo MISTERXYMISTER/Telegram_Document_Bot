@@ -2,7 +2,6 @@ package com.bot;
 
 import java.sql.*;
 import java.util.*;
-import java.net.URI;
 
 public class Database {
 
@@ -11,43 +10,54 @@ public class Database {
     private static String DB_PASSWORD;
 
     static {
-        DB_URL = System.getenv("DATABASE_URL");
-        if (DB_URL == null || DB_URL.isEmpty()) {
-            DB_URL = System.getProperty("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/postgres");
+        String dbUrl = System.getenv("DATABASE_URL");
+        
+        if (dbUrl == null || dbUrl.isEmpty()) {
+            dbUrl = System.getProperty("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/postgres");
         }
         
-        String user = System.getenv("DB_USER");
-        String password = System.getenv("DB_PASSWORD");
-        
-        if (user == null || password == null) {
-            try {
-                URI uri = new URI(DB_URL);
-                String[] userInfo = uri.getUserInfo().split(":");
-                DB_USER = userInfo[0];
-                DB_PASSWORD = userInfo.length > 1 ? userInfo[1] : "";
-            } catch (Exception e) {
-                DB_USER = "postgres";
-                DB_PASSWORD = "postgres";
+        try {
+            if (dbUrl.startsWith("postgres://")) {
+                dbUrl = "jdbc:postgresql://" + dbUrl.substring("postgres://".length());
             }
-        } else {
-            DB_USER = user;
-            DB_PASSWORD = password;
-        }
-
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            Statement stmt = conn.createStatement();
-
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS documents (
-                    user_id TEXT,
-                    tag TEXT,
-                    file_id TEXT
-                )
-            """);
-            System.out.println("✅ DATABASE CONNECTED");
-
+            
+            String user = System.getenv("DB_USER");
+            String password = System.getenv("DB_PASSWORD");
+            
+            if (user != null && !user.isEmpty()) {
+                DB_USER = user;
+            } else {
+                String[] parts = dbUrl.split("@");
+                if (parts.length > 0) {
+                    String[] creds = parts[0].split("://");
+                    if (creds.length > 1) {
+                        String[] userPass = creds[1].split(":");
+                        DB_USER = userPass[0];
+                        DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
+                    }
+                }
+            }
+            
+            if (password != null && !password.isEmpty()) {
+                DB_PASSWORD = password;
+            }
+            
+            DB_URL = dbUrl;
+            
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                Statement stmt = conn.createStatement();
+                stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS documents (
+                        user_id TEXT,
+                        tag TEXT,
+                        file_id TEXT
+                    )
+                """);
+                System.out.println("✅ DATABASE CONNECTED");
+            }
         } catch (Exception e) {
             System.out.println("❌ DATABASE CONNECTION FAILED: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
