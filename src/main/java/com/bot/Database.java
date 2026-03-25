@@ -11,33 +11,28 @@ public class Database {
 
     static {
         String dbUrl = System.getenv("DATABASE_URL");
-        System.out.println("📋 Raw DATABASE_URL: " + dbUrl);
         
         if (dbUrl == null || dbUrl.isEmpty()) {
             dbUrl = "postgres://postgres:postgres@localhost:5432/postgres";
         }
         
         try {
-            if (dbUrl.startsWith("postgresql://")) {
-                dbUrl = dbUrl.substring("postgresql://".length());
-            } else if (dbUrl.startsWith("postgres://")) {
+            if (dbUrl.startsWith("postgres://")) {
                 dbUrl = dbUrl.substring("postgres://".length());
-            }
-            
-            String[] parts = dbUrl.split("/");
-            String hostPart = parts[0];
-            String dbName = parts.length > 1 ? parts[1] : "postgres";
-            
-            String[] hostPort = hostPart.split(":");
-            String host = hostPort[0];
-            String port = hostPort.length > 1 ? hostPort[1] : "5432";
-            
-            String[] userPass = hostPart.split("@")[0].split(":");
-            DB_USER = userPass[0];
-            DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
-            
-            dbUrl = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
-            System.out.println("🔗 JDBC URL: " + dbUrl);
+                
+                String[] parts = dbUrl.split("/");
+                String hostPart = parts[0];
+                String dbName = parts.length > 1 ? parts[1] : "postgres";
+                
+                String[] hostPort = hostPart.split(":");
+                String host = hostPort[0];
+                String port = hostPort.length > 1 ? hostPort[1] : "5432";
+                
+                String[] userPass = hostPart.split("@")[0].split(":");
+                DB_USER = userPass[0];
+                DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
+                
+                dbUrl = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
             }
             
             String manualUser = System.getenv("DB_USER");
