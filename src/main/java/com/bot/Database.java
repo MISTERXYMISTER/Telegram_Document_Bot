@@ -23,17 +23,19 @@ public class Database {
                 dbUrl = dbUrl.substring("postgres://".length());
             }
             
-            String[] parts = dbUrl.split("/");
-            String hostPart = parts[0];
-            String dbName = parts.length > 1 ? parts[1] : "postgres";
+            int atIndex = dbUrl.lastIndexOf('@');
+            String credentials = dbUrl.substring(0, atIndex);
+            String hostPart = dbUrl.substring(atIndex + 1);
             
-            String[] hostPort = hostPart.split(":");
+            String[] userPass = credentials.split(":");
+            DB_USER = userPass[0];
+            DB_PASSWORD = userPass.length > 1 ? credentials.substring(userPass[0].length() + 1) : "";
+            
+            String[] hostDb = hostPart.split("/");
+            String[] hostPort = hostDb[0].split(":");
             String host = hostPort[0];
             String port = hostPort.length > 1 ? hostPort[1] : "5432";
-            
-            String[] userPass = hostPart.split("@")[0].split(":");
-            DB_USER = userPass[0];
-            DB_PASSWORD = userPass.length > 1 ? userPass[1] : "";
+            String dbName = hostDb.length > 1 ? hostDb[1] : "postgres";
             
             dbUrl = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
             
