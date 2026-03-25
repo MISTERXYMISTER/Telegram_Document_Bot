@@ -4,9 +4,6 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 
 @Component
 public class BotInitializer {
@@ -15,7 +12,10 @@ public class BotInitializer {
     private String token;
 
     @Value("${bot.path}")
-    private String webhookUrl;
+    private String webhookPath;
+
+    @Value("${external.url}")
+    private String externalUrl;
 
     private final WebhookBot webhookBot;
 
@@ -25,13 +25,19 @@ public class BotInitializer {
 
     @PostConstruct
     public void init() {
-        try {
-            String url = "https://api.telegram.org/bot" + token + "/setWebhook?url=" + webhookUrl;
-            RestTemplate restTemplate = new RestTemplate();
-            String response = restTemplate.getForObject(url, String.class);
-            System.out.println("✅ WEBHOOK SET RESPONSE: " + response);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                String fullWebhookUrl = externalUrl + webhookPath;
+                String url = "https://api.telegram.org/bot" + token + "/setWebhook?url=" + fullWebhookUrl;
+                RestTemplate restTemplate = new RestTemplate();
+                String response = restTemplate.getForObject(url, String.class);
+                System.out.println("✅ WEBHOOK SET TO: " + fullWebhookUrl);
+                System.out.println("✅ WEBHOOK SET RESPONSE: " + response);
+            } catch (Exception e) {
+                System.out.println("⚠️ WEBHOOK SET FAILED: " + e.getMessage());
+            }
+        }).start();
+        System.out.println("🚀 BOT STARTED (webhook setup in background)");
     }
 }
